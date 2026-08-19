@@ -1,0 +1,10 @@
+{
+  "name": "ba-memorial-lobby-assets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build pipeline for BA Memorial Lobby distributable assets",
+  "type": "module",
+  "dependencies": {
+    "@esotericsoftware/spine-core": "^4.2.74"
+  }
+}
