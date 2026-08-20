@@ -259,7 +259,12 @@ def main():
     if done:
         print(f"Resuming: {len(done)} bundle(s) already attempted previously, skipping those.")
 
-    bundles = sorted(args.bundle_dir.glob("*.bundle"))
+    bundles = sorted(
+        p for p in args.bundle_dir.rglob("*")
+        if p.is_file()
+        and p.stat().st_size > 0
+        and not p.name.endswith((".manifest", ".meta", ".progress.log"))
+    )
     bundles = [b for b in bundles if b.name not in done]
     print(f"{len(bundles)} bundle(s) left to process. No type/content filtering.")
 
