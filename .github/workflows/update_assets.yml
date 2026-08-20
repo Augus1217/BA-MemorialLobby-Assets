@@ -151,4 +151,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /tmp/ba_build
+        run: rm -rf /tmp/ba_build || true
