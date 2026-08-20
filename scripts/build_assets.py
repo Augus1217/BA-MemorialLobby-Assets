@@ -141,18 +141,35 @@ def step_extract_jp_tables():
     # Prefer Deathemonic BA-AX (baax) — 完全用 Deathemonic
     if shutil.which("baax"):
         print("  Trying baax (Deathemonic) for JP tables ...")
-        table_input = raw_dir / "TableBundles"
-        if not table_input.exists():
-            table_input = raw_dir
+        table_input_dir = raw_dir / "TableBundles"
+        baax_success = False
+        # Try per-file mode (TableBundles contains many zips/dbs)
+        if table_input_dir.exists():
+            for f in sorted(table_input_dir.rglob("*")):
+                if f.is_file() and f.suffix.lower() in [".zip", ".db", ".bytes"]:
+                    result = subprocess.run(
+                        ["baax", "extract", "table", "--input", str(f), "--output", str(JP_EXTRACT)],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode == 0:
+                        baax_success = True
+                    else:
+                        print(f"  baax failed for {f.name}: {result.stderr[:400] or result.stdout[:400]}", file=sys.stderr)
+            if baax_success:
+                print("  baax JP table extraction succeeded")
+                return
+            print("  baax per-file failed, trying directory mode", file=sys.stderr)
+        # Fallback: try directory as input
+        table_input = table_input_dir if table_input_dir.exists() else raw_dir
         result = subprocess.run(
             ["baax", "extract", "table", "--input", str(table_input), "--output", str(JP_EXTRACT)],
             capture_output=True, text=True,
         )
         if result.returncode == 0:
-            print("  baax JP table extraction succeeded")
+            print("  baax JP table extraction succeeded (dir mode)")
             return
         else:
-            print(f"  baax failed ({result.returncode}): {result.stderr[:800]}", file=sys.stderr)
+            print(f"  baax failed ({result.returncode}): {(result.stderr or result.stdout)[:800]}", file=sys.stderr)
             print("  Falling back to ba-downloader if available", file=sys.stderr)
 
     if shutil.which("ba-downloader") is None:
@@ -183,18 +200,33 @@ def step_extract_gl_tables():
     # Prefer Deathemonic BA-AX
     if shutil.which("baax"):
         print("  Trying baax (Deathemonic) for GL tables ...")
-        table_input = raw_dir / "TableBundles"
-        if not table_input.exists():
-            table_input = raw_dir
+        table_input_dir = raw_dir / "TableBundles"
+        baax_success = False
+        if table_input_dir.exists():
+            for f in sorted(table_input_dir.rglob("*")):
+                if f.is_file() and f.suffix.lower() in [".zip", ".db", ".bytes"]:
+                    result = subprocess.run(
+                        ["baax", "extract", "table", "--input", str(f), "--output", str(GL_EXTRACT)],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode == 0:
+                        baax_success = True
+                    else:
+                        print(f"  baax failed for {f.name}: {result.stderr[:400] or result.stdout[:400]}", file=sys.stderr)
+            if baax_success:
+                print("  baax GL table extraction succeeded")
+                return
+            print("  baax per-file failed, trying directory mode", file=sys.stderr)
+        table_input = table_input_dir if table_input_dir.exists() else raw_dir
         result = subprocess.run(
             ["baax", "extract", "table", "--input", str(table_input), "--output", str(GL_EXTRACT)],
             capture_output=True, text=True,
         )
         if result.returncode == 0:
-            print("  baax GL table extraction succeeded")
+            print("  baax GL table extraction succeeded (dir mode)")
             return
         else:
-            print(f"  baax failed ({result.returncode}): {result.stderr[:800]}", file=sys.stderr)
+            print(f"  baax failed ({result.returncode}): {(result.stderr or result.stdout)[:800]}", file=sys.stderr)
             print("  Falling back to ba-downloader if available", file=sys.stderr)
 
     if shutil.which("ba-downloader") is None:
@@ -232,8 +264,13 @@ def step_extract_bundles():
     if not extractor.exists():
         extractor = Path("/home/augus/ba_spine_extractor.py")
     if not extractor.exists():
-        print(f"  ERROR: ba_spine_extractor.py not found", file=sys.stderr)
-        sys.exit(1)
+        for cand in [SCRIPT_DIR / "ba_spine_extractor.py", PROJECT_ROOT / "ba_spine_extractor.py", Path("/home/augus/BA_MemorialLobby/ba_spine_extractor.py")]:
+            if cand.exists():
+                extractor = cand
+                break
+    if not extractor.exists():
+        print(f"  WARNING: ba_spine_extractor.py not found, skipping bundle extraction (改用 BA-AX 或手動放置)", file=sys.stderr)
+        return
 
     run([
         sys.executable, str(extractor),
