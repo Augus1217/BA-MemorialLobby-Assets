@@ -36,7 +36,9 @@ def main():
     os.makedirs(DST_BGM, exist_ok=True)
     os.makedirs(DST_DATA, exist_ok=True)
     n_lobby = 0
-    for name in sorted(os.listdir(SRC_SPINE)):
+    if not os.path.exists(SRC_SPINE):
+        print(f"SRC_SPINE not found: {SRC_SPINE}, skipping spine copy", file=sys.stderr)
+    for name in (sorted(os.listdir(SRC_SPINE)) if os.path.exists(SRC_SPINE) else []):
         if only and name not in only:
             continue
         src = os.path.join(SRC_SPINE, name)
@@ -77,7 +79,9 @@ def main():
 
     # Room/scene overlay skeletons (few lobbies ship one, e.g. Aru_Scene).
     n_scene = 0
-    for name in sorted(os.listdir(SRC_SPINE)):
+    if not os.path.exists(SRC_SPINE):
+        print(f"SRC_SPINE not found for scene, skipping", file=sys.stderr)
+    for name in (sorted(os.listdir(SRC_SPINE)) if os.path.exists(SRC_SPINE) else []):
         if only and name not in only:
             continue
         src_lobby = os.path.join(SRC_SPINE, name)

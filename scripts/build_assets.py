@@ -322,8 +322,8 @@ def step_copy_assets():
                 spine_src = candidate
                 break
     if not spine_src.exists():
-        print(f"  ERROR: SpineLobbies not found under {JP_EXTRACT}", file=sys.stderr)
-        sys.exit(1)
+        print(f"  WARNING: SpineLobbies not found under {JP_EXTRACT}, skipping spine copy (需 ba_spine_extractor.py 或 BA-AX)", file=sys.stderr)
+        spine_src = None
 
     # Determine voice source path
     voice_src = WORK_DIR / "media_extracted"
@@ -357,7 +357,10 @@ def step_copy_assets():
         print(f"  WARNING: BA_MemorialLobby/data not found, metadata may be stale", file=sys.stderr)
 
     env = os.environ.copy()
-    env["BA_SRC_SPINE"] = str(spine_src)
+    if spine_src and spine_src.exists():
+        env["BA_SRC_SPINE"] = str(spine_src)
+    else:
+        print("  Skipping spine env (SpineLobbies missing)", file=sys.stderr)
     if voice_src and voice_src.exists():
         env["BA_SRC_MEDIA"] = str(voice_src)
     if bgm_src and bgm_src.exists():
