@@ -42,10 +42,20 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install UnityPy==1.25.0 Pillow
-          pip install ba-downloader || pip install "git+https://github.com/Azrael9999/BlueArchive-Asset-Downloader.git" || pip install "git+https://github.com/K0lb3/Blue-Archive-Asset-Downloader.git" || echo "::warning::ba-downloader 安裝失敗，table 提取將自動跳過 (可用 --skip-extract)"
 
       - name: Install Node.js dependencies
         run: npm ci
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Deathemonic tools (BA-AD / BA-AX)
+        run: |
+          cargo install --git https://github.com/Deathemonic/BA-AD --locked baad-cli || echo "::warning::baad 安裝失敗"
+          cargo install --git https://github.com/Deathemonic/BA-AX --locked baax-cli || echo "::warning::baax 安裝失敗"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          baad --version || echo "baad not found"
+          baax --help | head -n 20 || echo "baax not found"
 
       - name: Display disk space
         run: df -h / && echo "---" && free -h

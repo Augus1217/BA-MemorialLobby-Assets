@@ -125,13 +125,10 @@ def step_download_gl():
 
 
 # ---------------------------------------------------------------------------
-# Step 2: Extract JP ExcelDB via ba-downloader
+# Step 2: Extract JP ExcelDB via Deathemonic (baax)
 # ---------------------------------------------------------------------------
 def step_extract_jp_tables():
-    if shutil.which("ba-downloader") is None:
-        print("  WARNING: ba-downloader not found, skipping JP table extraction", file=sys.stderr)
-        return
-    print("\n>>> Step 2: Extracting JP ExcelDB via ba-downloader")
+    print("\n>>> Step 2: Extracting JP ExcelDB")
     # ba-downloader expects Bundle/ and Media/ in raw-dir
     # BA-AD outputs TableBundles/, AssetBundles/, MediaResources/
     # Create symlinks for ba-downloader compatibility
@@ -140,6 +137,28 @@ def step_extract_jp_tables():
     (raw_dir / "Media").symlink_to(raw_dir / "MediaResources") if not (raw_dir / "Media").exists() and (raw_dir / "MediaResources").exists() else None
 
     JP_EXTRACT.mkdir(parents=True, exist_ok=True)
+
+    # Prefer Deathemonic BA-AX (baax) — 完全用 Deathemonic
+    if shutil.which("baax"):
+        print("  Trying baax (Deathemonic) for JP tables ...")
+        table_input = raw_dir / "TableBundles"
+        if not table_input.exists():
+            table_input = raw_dir
+        result = subprocess.run(
+            ["baax", "extract", "table", "--input", str(table_input), "--output", str(JP_EXTRACT)],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print("  baax JP table extraction succeeded")
+            return
+        else:
+            print(f"  baax failed ({result.returncode}): {result.stderr[:800]}", file=sys.stderr)
+            print("  Falling back to ba-downloader if available", file=sys.stderr)
+
+    if shutil.which("ba-downloader") is None:
+        print("  WARNING: ba-downloader/baax not found, skipping JP table extraction", file=sys.stderr)
+        return
+    print("  Using ba-downloader for JP ...")
     run([
         "ba-downloader", "extract",
         "--region", "jp",
@@ -151,18 +170,37 @@ def step_extract_jp_tables():
 
 
 # ---------------------------------------------------------------------------
-# Step 2b: Extract GL ExcelDB via ba-downloader
+# Step 2b: Extract GL ExcelDB via Deathemonic
 # ---------------------------------------------------------------------------
 def step_extract_gl_tables():
-    if shutil.which("ba-downloader") is None:
-        print("  WARNING: ba-downloader not found, skipping GL table extraction", file=sys.stderr)
-        return
-    print("\n>>> Step 2b: Extracting GL ExcelDB via ba-downloader")
+    print("\n>>> Step 2b: Extracting GL ExcelDB")
     raw_dir = GL_DIR
     (raw_dir / "Bundle").symlink_to(raw_dir / "AssetBundles") if not (raw_dir / "Bundle").exists() and (raw_dir / "AssetBundles").exists() else None
     (raw_dir / "Media").symlink_to(raw_dir / "MediaResources") if not (raw_dir / "Media").exists() and (raw_dir / "MediaResources").exists() else None
 
     GL_EXTRACT.mkdir(parents=True, exist_ok=True)
+
+    # Prefer Deathemonic BA-AX
+    if shutil.which("baax"):
+        print("  Trying baax (Deathemonic) for GL tables ...")
+        table_input = raw_dir / "TableBundles"
+        if not table_input.exists():
+            table_input = raw_dir
+        result = subprocess.run(
+            ["baax", "extract", "table", "--input", str(table_input), "--output", str(GL_EXTRACT)],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print("  baax GL table extraction succeeded")
+            return
+        else:
+            print(f"  baax failed ({result.returncode}): {result.stderr[:800]}", file=sys.stderr)
+            print("  Falling back to ba-downloader if available", file=sys.stderr)
+
+    if shutil.which("ba-downloader") is None:
+        print("  WARNING: ba-downloader/baax not found, skipping GL table extraction", file=sys.stderr)
+        return
+    print("  Using ba-downloader for GL ...")
     run([
         "ba-downloader", "extract",
         "--region", "gl",
