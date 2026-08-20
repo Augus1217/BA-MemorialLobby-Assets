@@ -108,7 +108,9 @@ def main():
     print(f"scenes copied: {n_scene}")
 
     n_voice = 0
-    for d in sorted(os.listdir(SRC_MEDIA)):
+    if not os.path.exists(SRC_MEDIA):
+        print(f"SRC_MEDIA not found: {SRC_MEDIA}, skipping voice copy", file=sys.stderr)
+    for d in (sorted(os.listdir(SRC_MEDIA)) if os.path.exists(SRC_MEDIA) else []):
         if not d.startswith("JP_"):
             continue
         src = os.path.join(SRC_MEDIA, d)
@@ -117,7 +119,9 @@ def main():
     print(f"voice folders copied: {n_voice}")
 
     n_bgm = 0
-    for f in sorted(os.listdir(SRC_BGM)):
+    if not os.path.exists(SRC_BGM):
+        print(f"SRC_BGM not found: {SRC_BGM}, skipping bgm copy", file=sys.stderr)
+    for f in (sorted(os.listdir(SRC_BGM)) if os.path.exists(SRC_BGM) else []):
         if f.startswith("Theme_"):
             shutil.copy2(os.path.join(SRC_BGM, f), os.path.join(DST_BGM, f))
             n_bgm += 1
