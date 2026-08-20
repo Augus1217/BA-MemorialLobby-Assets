@@ -4,14 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version string (e.g. 2025.0819.0)'
-        required: true
+        description: 'Version string (e.g. 2025.0819.0, 留空自動用日期)'
+        required: false
+        default: ''
         type: string
       skip_download:
         description: 'Skip download step (use existing data)'
         required: false
         type: boolean
         default: false
+  schedule:
+    # Global: 週二 JST 12:00 (UTC 03:00) / JP: 週三 JST 12:00 (UTC 03:00) — 維護視窗 11:00-18:00 JST
+    # 每兩週一次：cron 本身不支援雙週，改為每週觸發 + 下方「雙週門檻」step 自動跳過未滿 14 天的執行
+    - cron: '0 3 * * 2'
+    - cron: '0 3 * * 3'
 
 jobs:
   build-assets:
@@ -43,28 +49,72 @@ jobs:
       - name: Display disk space
         run: df -h / && echo "---" && free -h
 
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VER="${{ inputs.version }}"
+          else
+            VER=$(date +'%Y.%m%d.0')
+            if gh release view "v$VER" >/dev/null 2>&1; then
+              PATCH=1
+              while gh release view "v$(date +'%Y.%m%d.')$PATCH" >/dev/null 2>&1; do PATCH=$((PATCH+1)); done
+              VER=$(date +'%Y.%m%d.')$PATCH
+            fi
+          fi
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "Resolved version: $VER"
+
+      - name: Bi-weekly gate
+        id: gate
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST=$(gh release list --limit 1 --json publishedAt --jq '.[0].publishedAt' 2>/dev/null || echo "")
+          if [ -z "$LAST" ] || [ "$LAST" = "null" ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          LAST_EPOCH=$(date -d "$LAST" +%s)
+          NOW_EPOCH=$(date +%s)
+          DIFF_DAYS=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+          echo "Last release $LAST ($DIFF_DAYS days ago)"
+          if [ "$DIFF_DAYS" -lt 13 ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "距上次發版未滿 14 天，跳過本次排程"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build assets
+        if: steps.gate.outputs.skip != 'true'
         env:
           WORK_DIR: /tmp/ba_build
         run: |
-          ARGS="--version ${{ inputs.version }}"
+          ARGS="--version ${{ steps.version.outputs.version }}"
           if [ "${{ inputs.skip_download }}" = "true" ]; then
             ARGS="$ARGS --skip-download --skip-extract"
           fi
           python3 scripts/build_assets.py $ARGS
 
       - name: Display output
+        if: steps.gate.outputs.skip != 'true'
         run: |
+          echo "=== Resolved version: ${{ steps.version.outputs.version }} ==="
           echo "=== Output files ==="
           ls -lh /tmp/ba_build/out/
           echo "=== Total size ==="
           du -sh /tmp/ba_build/out/
 
       - name: Create GitHub Release
+        if: steps.gate.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: "Assets v${{ inputs.version }}"
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Assets v${{ steps.version.outputs.version }}"
           draft: false
           prerelease: false
           generate_release_notes: false
