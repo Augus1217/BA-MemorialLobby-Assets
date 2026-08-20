@@ -257,14 +257,16 @@ def step_extract_bundles():
         if spine_candidates:
             print(f"  Skipping — extracted SpineLobbies already found at {spine_candidates[0]}")
             return
-        print(f"  ERROR: AssetBundles directory not found", file=sys.stderr)
+        print(f"  ERROR: AssetBundles directory not found at {JP_DIR}/AssetBundles or {JP_DIR}/Bundle", file=sys.stderr)
         sys.exit(1)
 
-    extractor = Path(__file__).resolve().parent.parent.parent / "ba_spine_extractor.py"
+    # 計算 bundle 數量，方便 CI log 排查
+    bundle_count = len(list(bundle_dir.rglob("*")))
+    print(f"  Found {bundle_count} files in {bundle_dir}")
+
+    extractor = PROJECT_ROOT / "ba_spine_extractor.py"
     if not extractor.exists():
-        extractor = Path("/home/augus/ba_spine_extractor.py")
-    if not extractor.exists():
-        for cand in [SCRIPT_DIR / "ba_spine_extractor.py", PROJECT_ROOT / "ba_spine_extractor.py", Path("/home/augus/BA_MemorialLobby/ba_spine_extractor.py")]:
+        for cand in [SCRIPT_DIR / "ba_spine_extractor.py", Path("/home/augus/ba_spine_extractor.py"), Path("/home/augus/BA_MemorialLobby/ba_spine_extractor.py")]:
             if cand.exists():
                 extractor = cand
                 break
@@ -273,15 +275,35 @@ def step_extract_bundles():
         if fallback.exists():
             print(f"  ba_spine_extractor.py not found, using fallback {fallback}", file=sys.stderr)
             run([sys.executable, str(fallback), str(bundle_dir), "--output", str(JP_EXTRACT), "--workers", "4"])
+        else:
+            print(f"  WARNING: ba_spine_extractor.py not found, skipping bundle extraction", file=sys.stderr)
             return
-        print(f"  WARNING: ba_spine_extractor.py not found, skipping bundle extraction (改用 BA-AX 或手動放置)", file=sys.stderr)
-        return
+    else:
+        run([
+            sys.executable, str(extractor),
+            str(bundle_dir),
+            "--output", str(JP_EXTRACT),
+        ])
 
-    run([
-        sys.executable, str(extractor),
-        str(bundle_dir),
-        "--output", str(JP_EXTRACT),
-    ])
+    # 驗證 extraction 結果
+    spine_out = JP_EXTRACT / "Assets" / "_MX" / "SpineLobbies"
+    if not spine_out.exists():
+        # 嘗試其他可能的輸出路徑
+        alt = list(JP_EXTRACT.rglob("SpineLobbies"))
+        if alt:
+            spine_out = alt[0]
+            print(f"  SpineLobbies found at alternate path: {spine_out}")
+    if spine_out.exists():
+        lobby_count = len([d for d in spine_out.iterdir() if d.is_dir()])
+        print(f"  Extraction result: {lobby_count} lobbies in {spine_out}")
+        if lobby_count == 0:
+            print("  WARNING: SpineLobbies directory is empty — bundle 可能是加密的 "
+                  "(UnityPy 無法解析加密 bundle)，請檢查上方是否有大量 [SKIP] 訊息",
+                  file=sys.stderr)
+    else:
+        print(f"  WARNING: SpineLobbies not found after extraction — "
+              f"bundle 可能是加密的或 extraction 完全失敗",
+              file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -356,9 +378,11 @@ def step_copy_assets():
             break
 
     # Determine data source (手動維護 metadata，優先 repo 內 data/，其次外部覆寫)
-    data_src = Path(os.environ.get("BA_SRC_DATA", ""))
-    if not str(data_src):
-        data_src = PROJECT_ROOT / "data"
+    # 注意：Path("") 會變成 PosixPath('.')，str 後是 "." 不是 ""，
+    # 所以必須先檢查原始字串再建 Path，否則 BA_SRC_DATA 未設定時會指向
+    # 當前目錄而不是 PROJECT_ROOT/data。
+    _data_env = os.environ.get("BA_SRC_DATA", "")
+    data_src = Path(_data_env) if _data_env else PROJECT_ROOT / "data"
     if not data_src.exists():
         data_src = Path("/home/augus/BA_MemorialLobby/data")
     if not data_src.exists():
