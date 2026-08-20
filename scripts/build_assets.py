@@ -283,6 +283,7 @@ def step_extract_bundles():
             sys.executable, str(extractor),
             str(bundle_dir),
             "--output", str(JP_EXTRACT),
+            "--spine-only",
         ])
 
     # 驗證 extraction 結果

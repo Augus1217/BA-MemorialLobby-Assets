@@ -47,6 +47,7 @@ from pathlib import Path
 import UnityPy
 
 KNOWN_TYPES = {"TextAsset", "Texture2D", "Sprite", "AudioClip", "Mesh", "Font"}
+SPINE_TYPES = {"TextAsset", "Texture2D", "Sprite"}
 
 
 def to_bytes(x) -> bytes:
@@ -164,7 +165,7 @@ def export_object(obj, data, out_dir: Path, name: str, dry_run: bool) -> int:
     return count
 
 
-def export_bundle(bundle_path: Path, out_root: Path, dry_run: bool) -> int:
+def export_bundle(bundle_path: Path, out_root: Path, dry_run: bool, spine_only: bool = False) -> int:
     try:
         env = UnityPy.load(str(bundle_path))
     except Exception as e:
@@ -182,6 +183,8 @@ def export_bundle(bundle_path: Path, out_root: Path, dry_run: bool) -> int:
     total_objs = 0
     for obj in env.objects:
         total_objs += 1
+        if spine_only and obj.type.name not in SPINE_TYPES:
+            continue  # 只要 TextAsset + Texture2D/Sprite
         container_path = path_by_id.get(obj.path_id)
 
         try:
@@ -214,12 +217,12 @@ def export_bundle(bundle_path: Path, out_root: Path, dry_run: bool) -> int:
     return exported
 
 
-def _bundle_worker(bundle_path_str: str, out_root_str: str, dry_run: bool, queue: mp.Queue):
+def _bundle_worker(bundle_path_str: str, out_root_str: str, dry_run: bool, queue: mp.Queue, spine_only: bool = False):
     """Runs in its own child process. If native code (e.g. the texture
     decoder) segfaults, only this child dies -- the parent driver loop
     keeps going."""
     try:
-        n = export_bundle(Path(bundle_path_str), Path(out_root_str), dry_run)
+        n = export_bundle(Path(bundle_path_str), Path(out_root_str), dry_run, spine_only)
         queue.put(("OK", n))
     except Exception as e:
         queue.put(("ERROR", str(e)))
@@ -250,6 +253,9 @@ def main():
                      help="defaults to <output>/.progress.log -- tracks which "
                           "bundles were already attempted so a crash or "
                           "Ctrl-C doesn't force a full restart")
+    ap.add_argument("--spine-only", action="store_true",
+                     help="only extract TextAsset + Texture2D/Sprite (Spine data), "
+                          "skip Mesh/Font/AudioClip/other types")
     args = ap.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -266,7 +272,8 @@ def main():
         and not p.name.endswith((".manifest", ".meta", ".progress.log"))
     )
     bundles = [b for b in bundles if b.name not in done]
-    print(f"{len(bundles)} bundle(s) left to process. No type/content filtering.")
+    mode = "Spine-only (TextAsset + Texture2D/Sprite)" if args.spine_only else "No type/content filtering"
+    print(f"{len(bundles)} bundle(s) left to process. {mode}.")
 
     total = 0
     crashed = 0
@@ -274,7 +281,7 @@ def main():
         print(f"[{i}/{len(bundles)}] {b.name}")
 
         q = mp.Queue()
-        p = mp.Process(target=_bundle_worker, args=(str(b), str(args.output), args.dry_run, q))
+        p = mp.Process(target=_bundle_worker, args=(str(b), str(args.output), args.dry_run, q, args.spine_only))
         p.start()
         p.join()
 
