@@ -41,7 +41,8 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install ba-downloader UnityPy==1.25.0 Pillow
+          pip install UnityPy==1.25.0 Pillow
+          pip install ba-downloader || pip install "git+https://github.com/Azrael9999/BlueArchive-Asset-Downloader.git" || pip install "git+https://github.com/K0lb3/Blue-Archive-Asset-Downloader.git" || echo "::warning::ba-downloader 安裝失敗，table 提取將自動跳過 (可用 --skip-extract)"
 
       - name: Install Node.js dependencies
         run: npm ci

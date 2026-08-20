@@ -128,6 +128,9 @@ def step_download_gl():
 # Step 2: Extract JP ExcelDB via ba-downloader
 # ---------------------------------------------------------------------------
 def step_extract_jp_tables():
+    if shutil.which("ba-downloader") is None:
+        print("  WARNING: ba-downloader not found, skipping JP table extraction", file=sys.stderr)
+        return
     print("\n>>> Step 2: Extracting JP ExcelDB via ba-downloader")
     # ba-downloader expects Bundle/ and Media/ in raw-dir
     # BA-AD outputs TableBundles/, AssetBundles/, MediaResources/
@@ -151,6 +154,9 @@ def step_extract_jp_tables():
 # Step 2b: Extract GL ExcelDB via ba-downloader
 # ---------------------------------------------------------------------------
 def step_extract_gl_tables():
+    if shutil.which("ba-downloader") is None:
+        print("  WARNING: ba-downloader not found, skipping GL table extraction", file=sys.stderr)
+        return
     print("\n>>> Step 2b: Extracting GL ExcelDB via ba-downloader")
     raw_dir = GL_DIR
     (raw_dir / "Bundle").symlink_to(raw_dir / "AssetBundles") if not (raw_dir / "Bundle").exists() and (raw_dir / "AssetBundles").exists() else None
