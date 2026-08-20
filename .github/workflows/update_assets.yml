@@ -44,7 +44,7 @@ jobs:
           pip install UnityPy==1.25.0 Pillow
 
       - name: Install Node.js dependencies
-        run: npm ci
+        run: npm install || npm ci
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
