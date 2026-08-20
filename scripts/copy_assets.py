@@ -121,11 +121,25 @@ def main():
     n_bgm = 0
     if not os.path.exists(SRC_BGM):
         print(f"SRC_BGM not found: {SRC_BGM}, skipping bgm copy", file=sys.stderr)
+    # Theme_* 全拷之外，lobby_bgm_mapping.csv 引用的非 Theme 檔
+    # （如 BlueNewWorld_Lobby.ogg）也要拷，否則對應 lobby 靜音。
+    extra_bgm = set()
+    mapping_csv = os.path.join(SRC_DATA, "lobby_bgm_mapping.csv")
+    if os.path.exists(mapping_csv):
+        try:
+            import csv as _csv
+            with open(mapping_csv, newline="", encoding="utf-8", errors="ignore") as fh:
+                for row in _csv.DictReader(fh):
+                    fn = (row.get("bgm_filename") or "").strip()
+                    if fn:
+                        extra_bgm.add(fn)
+        except Exception as e:
+            print(f"lobby_bgm_mapping.csv 讀取失敗({e})，僅拷 Theme_*", file=sys.stderr)
     for f in (sorted(os.listdir(SRC_BGM)) if os.path.exists(SRC_BGM) else []):
-        if f.startswith("Theme_"):
+        if f.startswith("Theme_") or f in extra_bgm:
             shutil.copy2(os.path.join(SRC_BGM, f), os.path.join(DST_BGM, f))
             n_bgm += 1
-    print(f"bgm copied: {n_bgm}")
+    print(f"bgm copied: {n_bgm}" + (f" (mapping 引用 {len(extra_bgm)} 檔)" if extra_bgm else ""))
 
     os.makedirs(DST_DATA, exist_ok=True)
     if not os.path.exists(SRC_DATA):
@@ -230,9 +244,17 @@ def gen_manifest():
             with open(atxt) as fh:
                 pages = [l.strip() for l in fh.read().splitlines() if l.strip().endswith(".png")]
         idx.setdefault(name, {})["scene"] = {"skel": skel, "atlas": atlas, "png": pages}
-    with open(os.path.join(ROOT, "assets", "lobby_index.json"), "w") as fh:
-        _json.dump(idx, fh, ensure_ascii=False, indent=1)
-    print(f"manifest: {len(idx)} lobbies")
+    # manifest 同時寫到 assets/ 根目錄（開發模式）與 assets/data/
+    # （打包模式：lobby_index.json 必須進 data 包，否則純下載的
+    # Player fetch assets/lobby_index.json 會 404 起不來）
+    out_paths = [
+        os.path.join(ROOT, "assets", "lobby_index.json"),
+        os.path.join(DST_DATA, "lobby_index.json"),
+    ]
+    for p in out_paths:
+        with open(p, "w") as fh:
+            _json.dump(idx, fh, ensure_ascii=False, indent=1)
+    print(f"manifest: {len(idx)} lobbies -> {out_paths}")
 
 
 if __name__ == "__main__":
