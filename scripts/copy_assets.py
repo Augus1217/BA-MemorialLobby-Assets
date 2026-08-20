@@ -128,13 +128,34 @@ def main():
     print(f"bgm copied: {n_bgm}")
 
     os.makedirs(DST_DATA, exist_ok=True)
-    for f in ["lobby_voice_schedule.json", "lobby_bgm_mapping.csv",
-              "lobby_camera_config.json", "characters_index.csv",
-              "voice_index.json"]:
-        p = os.path.join(SRC_DATA, f)
-        if os.path.exists(p):
-            shutil.copy2(p, os.path.join(DST_DATA, f))
-    print("data copied")
+    if not os.path.exists(SRC_DATA):
+        print(f"SRC_DATA not found: {SRC_DATA}, skipping data copy", file=sys.stderr)
+    else:
+        # 全量拷貝 data/ 下所有 json/csv（flash_curves.json、lobby_chat_anchors.json、
+        # icon_index.json 等手動維護檔都一併帶上，避免漏包）
+        n_data = 0
+        for f in sorted(os.listdir(SRC_DATA)):
+            if f.endswith((".json", ".csv")):
+                shutil.copy2(os.path.join(SRC_DATA, f), os.path.join(DST_DATA, f))
+                n_data += 1
+        print(f"data copied: {n_data} files")
+
+    # 手動素材（ui 氣泡/游標、students 頭像）從 repo manual/ 拷入
+    MANUAL_ROOT = os.environ.get("BA_SRC_MANUAL", os.path.join(ROOT, "manual"))
+    for sub in ("ui", "students"):
+        src = os.path.join(MANUAL_ROOT, sub)
+        dst = os.path.join(ROOT, "assets", sub)
+        if not os.path.isdir(src):
+            print(f"manual/{sub} not found, skipping", file=sys.stderr)
+            continue
+        os.makedirs(dst, exist_ok=True)
+        n = 0
+        for f in sorted(os.listdir(src)):
+            p = os.path.join(src, f)
+            if os.path.isfile(p):
+                shutil.copy2(p, os.path.join(dst, f))
+                n += 1
+        print(f"manual/{sub} copied: {n} files")
 
 
 def gen_manifest():

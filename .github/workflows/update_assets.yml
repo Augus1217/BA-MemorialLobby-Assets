@@ -49,6 +49,11 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install ffmpeg (intro transcode)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg || echo "::warning::ffmpeg 安裝失敗，intro 將保留 HEVC 無法播放"
+
       - name: Install Deathemonic tools (BA-AD / BA-AX)
         run: |
           cargo install --git https://github.com/Deathemonic/BA-AD --locked baad-cli || echo "::warning::baad 安裝失敗"

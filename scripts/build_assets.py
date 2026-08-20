@@ -355,10 +355,14 @@ def step_copy_assets():
             bgm_src = candidate
             break
 
-    # Determine data source (BA_MemorialLobby project)
-    data_src = Path("/home/augus/BA_MemorialLobby/data")
+    # Determine data source (手動維護 metadata，優先 repo 內 data/，其次外部覆寫)
+    data_src = Path(os.environ.get("BA_SRC_DATA", ""))
+    if not str(data_src):
+        data_src = PROJECT_ROOT / "data"
     if not data_src.exists():
-        print(f"  WARNING: BA_MemorialLobby/data not found, metadata may be stale", file=sys.stderr)
+        data_src = Path("/home/augus/BA_MemorialLobby/data")
+    if not data_src.exists():
+        print(f"  WARNING: data dir not found (repo data/ or BA_MemorialLobby/data), metadata will be missing", file=sys.stderr)
 
     env = os.environ.copy()
     if spine_src and spine_src.exists():
@@ -373,6 +377,23 @@ def step_copy_assets():
         env["BA_SRC_DATA"] = str(data_src)
 
     run([sys.executable, str(SCRIPT_DIR / "copy_assets.py")], env=env)
+
+
+# ---------------------------------------------------------------------------
+# Step 5.5: Extract + transcode intro video (optional, needs APK + ffmpeg)
+# ---------------------------------------------------------------------------
+def step_extract_intro():
+    print("\n>>> Step 5.5: Extracting intro video from APK")
+    intro_script = SCRIPT_DIR / "extract_intro.py"
+    if not intro_script.exists():
+        print("  WARNING: extract_intro.py not found, skipping intro", file=sys.stderr)
+        return
+    intro_dir = ASSETS_DIR / "intro"
+    run([
+        sys.executable, str(intro_script),
+        "--out", str(intro_dir),
+        "--work-dir", str(WORK_DIR),
+    ], check=False)
 
 
 # ---------------------------------------------------------------------------
@@ -590,6 +611,7 @@ def parse_args():
     p.add_argument("--skip-events", action="store_true", help="Skip spine events extraction")
     p.add_argument("--skip-dialog-types", action="store_true", help="Skip dialog types extraction")
     p.add_argument("--skip-metadata", action="store_true", help="Skip metadata extraction")
+    p.add_argument("--skip-intro", action="store_true", help="Skip intro video extraction")
     p.add_argument("--only-package", action="store_true", help="Only package existing assets")
     return p.parse_args()
 
@@ -619,6 +641,9 @@ def main():
 
         if not ARGS.skip_copy:
             step_copy_assets()
+
+        if not ARGS.skip_intro:
+            step_extract_intro()
 
         if not ARGS.skip_events:
             step_extract_events()
