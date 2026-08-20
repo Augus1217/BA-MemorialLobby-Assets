@@ -269,6 +269,11 @@ def step_extract_bundles():
                 extractor = cand
                 break
     if not extractor.exists():
+        fallback = SCRIPT_DIR / "extract_spine_unitypy.py"
+        if fallback.exists():
+            print(f"  ba_spine_extractor.py not found, using fallback {fallback}", file=sys.stderr)
+            run([sys.executable, str(fallback), str(bundle_dir), "--output", str(JP_EXTRACT), "--workers", "4"])
+            return
         print(f"  WARNING: ba_spine_extractor.py not found, skipping bundle extraction (改用 BA-AX 或手動放置)", file=sys.stderr)
         return
 
