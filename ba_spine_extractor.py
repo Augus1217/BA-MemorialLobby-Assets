@@ -172,6 +172,16 @@ def export_bundle(bundle_path: Path, out_root: Path, dry_run: bool, spine_only: 
         print(f"  [SKIP] failed to load (likely encrypted/corrupted): {e}")
         return 0
 
+    # --- 快速預檢：只讀 container index（幾 KB），不含 SpineLobbies 就跳過 ---
+    try:
+        has_spine = any("SpineLobbies" in p for p in env.container.keys())
+    except Exception:
+        has_spine = False  # 無 container 資訊，後續再判斷
+    if not has_spine and env.container.keys():
+        # 有 container 資訊但沒有 SpineLobbies → 確定不是紀念大廳 bundle
+        del env
+        return 0
+
     path_by_id = {}
     try:
         for path, obj in env.container.items():
