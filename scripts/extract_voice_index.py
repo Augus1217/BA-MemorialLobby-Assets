@@ -35,9 +35,12 @@ def extract_voice_index(voice_dir: str) -> dict:
         # JP_Airi -> Airi, JP_CH0070 -> CH0070
         char_id = folder_name[3:]  # strip "JP_"
 
-        # List only memoriallobby .ogg files
+        # baax extract media 可能解出雙層嵌套（JP_X/JP_X/*.ogg），
+        # 所以用遞迴搜尋所有 memoriallobby .ogg 檔案。
         ogg_files = sorted([
-            f for f in os.listdir(folder_path)
+            os.path.relpath(os.path.join(r, f), folder_path)
+            for r, _, files in os.walk(folder_path)
+            for f in files
             if f.endswith(".ogg") and "memoriallobby" in f
         ])
 
