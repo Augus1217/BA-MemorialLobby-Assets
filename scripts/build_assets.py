@@ -405,6 +405,37 @@ def step_copy_assets():
 
 
 # ---------------------------------------------------------------------------
+# Step 5.2: Merge Akari's three skeletons (home + bg + scene flash) into one.
+# Must run AFTER copy_assets (consumes copied assets) and BEFORE packaging.
+# Also regenerates lobby_index.json so it points at the merged .json.
+# ---------------------------------------------------------------------------
+def step_merge_akari():
+    print("\n>>> Step 5.2: Merging Akari_home skeletons (spine-merge.mjs)")
+    node = shutil.which("node")
+    if not node:
+        print("  WARNING: node not found, skipping Akari merge", file=sys.stderr)
+        return
+    config = SCRIPT_DIR / "merge_akari.json"
+    if not config.exists():
+        print("  WARNING: merge_akari.json not found, skipping Akari merge", file=sys.stderr)
+        return
+    # config 內的資料路徑相對於 BA_APP（copy_assets 的輸出根目錄）
+    run([node, str(SCRIPT_DIR / "spine-merge.mjs"), "--config", str(config)], cwd=str(BA_APP))
+
+    # 合併會新增/覆蓋 akari_home.json，重建 lobby_index 讓 skel 指向合併版
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0, r'%s'); import copy_assets; copy_assets.gen_manifest()"
+         % str(SCRIPT_DIR)],
+        cwd=str(BA_APP), capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        print("  lobby_index regenerated:", result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "ok")
+    else:
+        print(f"  WARNING: manifest regen failed: {result.stderr[:300]}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # Step 5.5: Extract + transcode intro video (optional, needs APK + ffmpeg)
 # ---------------------------------------------------------------------------
 def step_extract_intro():
@@ -666,6 +697,7 @@ def main():
 
         if not ARGS.skip_copy:
             step_copy_assets()
+            step_merge_akari()
 
         if not ARGS.skip_intro:
             step_extract_intro()

@@ -5,6 +5,6 @@
   "description": "Build pipeline for BA Memorial Lobby distributable assets",
   "type": "module",
   "dependencies": {
-    "@esotericsoftware/spine-core": "^4.2.74"
+    "@esotericsoftware/spine-core": "^4.2.119"
   }
 }

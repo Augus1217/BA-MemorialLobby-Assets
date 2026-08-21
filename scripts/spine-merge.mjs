@@ -307,6 +307,19 @@ export function merge(config, cwd = process.cwd()) {
   // apply renames to every layer first (attach/drop targets use final names)
   for (const layer of layers) applyRenameBones(layer.json, layer.renameBones);
 
+  // per-layer animation renames (config.animRename = { <layerIndex>: { old: new } }).
+  // Applied before the union so same-name animations from different layers stay
+  // separate instead of colliding (e.g. bg Idle_01 conveyor -> Sushi_01_R).
+  layers.forEach((layer, i) => {
+    const ren = config.animRename?.[i];
+    if (!ren || !layer.json.animations) return;
+    const out = {};
+    for (const [name, anim] of Object.entries(layer.json.animations)) {
+      out[ren[name] || name] = anim;
+    }
+    layer.json.animations = out;
+  });
+
   // Capture original bone names per layer BEFORE dropRoot/sort, so we can
   // remap mesh vertex bone indices from layer-local order to final order.
   for (const layer of layers) layer._origBoneNames = layer.json.bones.map(b => b.name);
